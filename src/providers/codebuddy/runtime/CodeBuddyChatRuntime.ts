@@ -662,8 +662,8 @@ export class CodeBuddyChatRuntime implements ChatRuntime {
 
     const settingsBag = this.plugin.settings as unknown as Record<string, unknown>;
     const currentSettings = getCodeBuddyProviderSettings(settingsBag);
-    const nextVisibleModels = currentSettings.visibleModels.length === 0 && currentRawModelId
-      ? [currentRawModelId]
+    const nextVisibleModels = currentRawModelId && !currentSettings.visibleModels.includes(currentRawModelId)
+      ? [...currentSettings.visibleModels, currentRawModelId]
       : currentSettings.visibleModels;
     const nextPreferredThinking = currentRawModelId && thinkingState.currentLevel
       ? {

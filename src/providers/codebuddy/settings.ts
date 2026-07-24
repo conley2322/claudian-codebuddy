@@ -8,7 +8,10 @@ import {
 } from '../../utils/env';
 import {
   CODEBUDDY_DEFAULT_REASONING_LEVEL,
+  CODEBUDDY_KNOWN_MODEL_IDS,
+  CODEBUDDY_KNOWN_MODELS,
   type CodeBuddyDiscoveredModel,
+  mergeCodeBuddyKnownModels,
   normalizeCodeBuddyDiscoveredModels,
   normalizeCodeBuddyVisibleModels,
 } from './models';
@@ -28,13 +31,13 @@ export interface CodeBuddyProviderSettings {
 export const DEFAULT_CODEBUDDY_PROVIDER_SETTINGS: Readonly<CodeBuddyProviderSettings> = Object.freeze({
   cliPath: '',
   cliPathsByHost: {},
-  discoveredModels: [],
+  discoveredModels: CODEBUDDY_KNOWN_MODELS,
   enabled: false,
   environmentHash: '',
   environmentVariables: '',
   modelAliases: {},
   preferredThinkingByModel: {},
-  visibleModels: [],
+  visibleModels: CODEBUDDY_KNOWN_MODEL_IDS,
 });
 
 function normalizeHostnameCliPaths(value: unknown): HostnameCliPaths {
@@ -75,7 +78,12 @@ export function getCodeBuddyProviderSettings(settings: Record<string, unknown>):
       getLegacyHostnameKey(),
     )
     : normalizedCliPathsByHost;
-  const discoveredModels = normalizeCodeBuddyDiscoveredModels(config.discoveredModels);
+  const normalizedDiscoveredModels = normalizeCodeBuddyDiscoveredModels(config.discoveredModels);
+  const discoveredModels = mergeCodeBuddyKnownModels(normalizedDiscoveredModels);
+  const normalizedVisibleModels = normalizeCodeBuddyVisibleModels(config.visibleModels, discoveredModels);
+  const visibleModels = normalizedVisibleModels.length > 0
+    ? normalizedVisibleModels
+    : normalizeCodeBuddyVisibleModels(CODEBUDDY_KNOWN_MODEL_IDS, discoveredModels);
 
   return {
     cliPath: (config.cliPath as string | undefined) ?? DEFAULT_CODEBUDDY_PROVIDER_SETTINGS.cliPath,
@@ -89,7 +97,7 @@ export function getCodeBuddyProviderSettings(settings: Record<string, unknown>):
       ?? DEFAULT_CODEBUDDY_PROVIDER_SETTINGS.environmentVariables,
     modelAliases: normalizeStringMap(config.modelAliases),
     preferredThinkingByModel: normalizeStringMap(config.preferredThinkingByModel),
-    visibleModels: normalizeCodeBuddyVisibleModels(config.visibleModels, discoveredModels),
+    visibleModels,
   };
 }
 
