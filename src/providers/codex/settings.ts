@@ -34,6 +34,7 @@ export interface CodexProviderSettings {
   installationMethodsByHost: HostnameInstallationMethods;
   wslDistroOverride: string;
   wslDistroOverridesByHost: HostnameCliPaths;
+  initializeTimeoutMs: number;
 }
 
 export const DEFAULT_CODEX_PROVIDER_SETTINGS: Readonly<CodexProviderSettings> = Object.freeze({
@@ -49,7 +50,21 @@ export const DEFAULT_CODEX_PROVIDER_SETTINGS: Readonly<CodexProviderSettings> = 
   installationMethodsByHost: {},
   wslDistroOverride: '',
   wslDistroOverridesByHost: {},
+  initializeTimeoutMs: 60_000,
 });
+
+// Floor for the handshake timeout — anything below this is treated as unset
+// and falls back to the default. Prevents foot-gun values like 0 or 100ms.
+const INITIALIZE_TIMEOUT_MIN_MS = 5_000;
+
+function resolveInitializeTimeoutMs(value: unknown): number {
+  const parsed = typeof value === 'number'
+    ? value
+    : Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed >= INITIALIZE_TIMEOUT_MIN_MS
+    ? parsed
+    : DEFAULT_CODEX_PROVIDER_SETTINGS.initializeTimeoutMs;
+}
 
 export function shouldDisableCodexReasoningSummary(model: string | undefined): boolean {
   return model === CODEX_SPARK_MODEL;
@@ -165,6 +180,10 @@ export function getCodexProviderSettings(
           : legacyWslDistroOverride
       ),
     wslDistroOverridesByHost,
+    initializeTimeoutMs: resolveInitializeTimeoutMs(
+      config.initializeTimeoutMs
+      ?? settings.codexInitializeTimeoutMs,
+    ),
   };
 }
 
@@ -217,6 +236,9 @@ export function updateCodexProviderSettings(
     wslDistroOverride: wslDistroOverridesByHost[hostnameKey]
       ?? DEFAULT_CODEX_PROVIDER_SETTINGS.wslDistroOverride,
     wslDistroOverridesByHost,
+    initializeTimeoutMs: resolveInitializeTimeoutMs(
+      'initializeTimeoutMs' in updates ? updates.initializeTimeoutMs : current.initializeTimeoutMs,
+    ),
   };
 
   setProviderConfig(settings, 'codex', {
@@ -230,6 +252,7 @@ export function updateCodexProviderSettings(
     environmentHash: next.environmentHash,
     installationMethodsByHost,
     wslDistroOverridesByHost,
+    initializeTimeoutMs: next.initializeTimeoutMs,
   });
   return next;
 }

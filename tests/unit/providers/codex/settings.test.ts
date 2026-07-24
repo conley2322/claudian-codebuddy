@@ -186,4 +186,48 @@ describe('codex settings', () => {
 
     expect(getCodexProviderSettings(settingsBag).reasoningSummary).toBe('none');
   });
+
+  describe('initializeTimeoutMs', () => {
+    it('defaults to 60_000 when not set', () => {
+      expect(getCodexProviderSettings({}).initializeTimeoutMs).toBe(60_000);
+    });
+
+    it('reads the configured value from the codex provider config', () => {
+      const settingsBag: Record<string, unknown> = {
+        providerConfigs: { codex: { initializeTimeoutMs: 120_000 } },
+      };
+
+      expect(getCodexProviderSettings(settingsBag).initializeTimeoutMs).toBe(120_000);
+    });
+
+    it('falls back to default when value is below the 5_000 minimum', () => {
+      const settingsBag: Record<string, unknown> = {
+        providerConfigs: { codex: { initializeTimeoutMs: 1_000 } },
+      };
+
+      expect(getCodexProviderSettings(settingsBag).initializeTimeoutMs).toBe(60_000);
+    });
+
+    it('falls back to default when value is NaN or non-numeric', () => {
+      const settingsBag: Record<string, unknown> = {
+        providerConfigs: { codex: { initializeTimeoutMs: 'not-a-number' } },
+      };
+
+      expect(getCodexProviderSettings(settingsBag).initializeTimeoutMs).toBe(60_000);
+    });
+
+    it('round-trips through updateCodexProviderSettings', () => {
+      const settingsBag: Record<string, unknown> = {};
+      updateCodexProviderSettings(settingsBag, { initializeTimeoutMs: 90_000 });
+
+      expect(getCodexProviderSettings(settingsBag).initializeTimeoutMs).toBe(90_000);
+    });
+
+    it('normalizes an out-of-range value on update', () => {
+      const settingsBag: Record<string, unknown> = {};
+      updateCodexProviderSettings(settingsBag, { initializeTimeoutMs: 100 });
+
+      expect(getCodexProviderSettings(settingsBag).initializeTimeoutMs).toBe(60_000);
+    });
+  });
 });

@@ -817,9 +817,21 @@ export class CodexChatRuntime implements ChatRuntime {
     this.transport = new CodexRpcTransport(this.process);
     this.transport.start();
 
-    const initializeResult = await initializeCodexAppServerTransport(this.transport);
-    this.runtimeContext = createCodexRuntimeContext(launchSpec, initializeResult);
-    this.clientConfigKey = clientConfigKey;
+    const initializeTimeoutMs = getCodexProviderSettings(this.getProviderSettings()).initializeTimeoutMs;
+
+    try {
+      const initializeResult = await initializeCodexAppServerTransport(this.transport, initializeTimeoutMs);
+      this.runtimeContext = createCodexRuntimeContext(launchSpec, initializeResult);
+      this.clientConfigKey = clientConfigKey;
+    } catch (error) {
+      const stderr = this.process.getStderrSnapshot();
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to initialize Codex app-server: ${reason}`
+          + (stderr ? `\n\nCodex app-server stderr:\n${stderr}` : ''),
+        { cause: error },
+      );
+    }
   }
 
   private wireTransportHandlers(): void {

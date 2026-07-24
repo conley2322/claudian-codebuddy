@@ -11,6 +11,7 @@ import type {
 } from '../runtime/codexAppServerTypes';
 import { CodexRpcTransport } from '../runtime/CodexRpcTransport';
 import { createCodexRuntimeContext } from '../runtime/CodexRuntimeContext';
+import { getCodexProviderSettings } from '../settings';
 
 export interface CodexSkillListProvider {
   listSkills(options?: { forceReload?: boolean }): Promise<SkillMetadata[]>;
@@ -148,7 +149,10 @@ export class CodexSkillListingService implements CodexSkillListProvider {
     transport.start();
 
     try {
-      const initializeResult = await initializeCodexAppServerTransport(transport);
+      const initializeTimeoutMs = getCodexProviderSettings(
+        this.plugin.settings as unknown as Record<string, unknown>,
+      ).initializeTimeoutMs;
+      const initializeResult = await initializeCodexAppServerTransport(transport, initializeTimeoutMs);
       createCodexRuntimeContext(launchSpec, initializeResult);
       const result = await transport.request<SkillsListResult>('skills/list', {
         cwds: [launchSpec.targetCwd],

@@ -38,6 +38,7 @@ const mockProcessOnExit = jest.fn();
 const mockProcessStdin = { write: jest.fn((_c: any, _e: any, cb: any) => cb?.()) };
 const mockProcessStdout = {};
 const mockProcessStderr = {};
+const mockProcessGetStderrSnapshot = jest.fn().mockReturnValue('');
 
 jest.mock('@/providers/codex/runtime/CodexAppServerProcess', () => ({
   CodexAppServerProcess: jest.fn().mockImplementation(() => ({
@@ -45,6 +46,7 @@ jest.mock('@/providers/codex/runtime/CodexAppServerProcess', () => ({
     shutdown: mockProcessShutdown,
     isAlive: mockProcessIsAlive,
     onExit: mockProcessOnExit,
+    getStderrSnapshot: mockProcessGetStderrSnapshot,
     get stdin() { return mockProcessStdin; },
     get stdout() { return mockProcessStdout; },
     get stderr() { return mockProcessStderr; },
@@ -333,6 +335,7 @@ describe('CodexChatRuntime', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockProcessIsAlive.mockReturnValue(true);
+    mockProcessGetStderrSnapshot.mockReturnValue('');
     mockResolveLaunchSpec.mockImplementation((plugin: any) => ({
       target: {
         method: 'host-native',
@@ -414,6 +417,7 @@ describe('CodexChatRuntime', () => {
         expect.objectContaining({
           clientInfo: { name: 'claudian', version: '1.0.0' },
         }),
+        expect.any(Number),
       );
       expect(mockTransportNotify).toHaveBeenCalledWith('initialized');
     });
@@ -457,6 +461,38 @@ describe('CodexChatRuntime', () => {
       expect((MockedProcessClass as jest.Mock).mock.calls.length).toBe(firstCallCount + 1);
       expect(mockTransportDispose).toHaveBeenCalled();
       expect(mockProcessShutdown).toHaveBeenCalled();
+    });
+
+    it('enriches initialize failures with the codex app-server stderr snapshot', async () => {
+      mockTransportRequest.mockImplementation(async (method: string) => {
+        if (method === 'initialize') {
+          throw new Error('Request timeout: initialize (60000ms)');
+        }
+        return {};
+      });
+      mockProcessGetStderrSnapshot.mockReturnValue('codex: checking auth...\ncodex: loading MCP servers...');
+
+      await expect(runtime.ensureReady()).rejects.toThrow(/Failed to initialize Codex app-server/);
+      await expect(runtime.ensureReady()).rejects.toThrow(/Request timeout: initialize/);
+      await expect(runtime.ensureReady()).rejects.toThrow(/codex: checking auth/);
+      await expect(runtime.ensureReady()).rejects.toThrow(/loading MCP servers/);
+    });
+
+    it('threads the configured initializeTimeoutMs into the initialize handshake', async () => {
+      // Stick the configured timeout into the same settingsBag the runtime reads.
+      const plugin = (runtime as any).plugin;
+      plugin.settings.providerConfigs = {
+        ...(plugin.settings.providerConfigs ?? {}),
+        codex: { initializeTimeoutMs: 90_000 },
+      };
+
+      await runtime.ensureReady();
+
+      const initCall = mockTransportRequest.mock.calls.find(
+        (c: any[]) => c[0] === 'initialize',
+      );
+      expect(initCall).toBeDefined();
+      expect(initCall![2]).toBe(90_000);
     });
   });
 

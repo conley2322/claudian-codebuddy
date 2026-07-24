@@ -12,6 +12,10 @@ const CODEX_APP_SERVER_CLIENT_INFO = Object.freeze({
   version: '1.0.0',
 });
 
+// Cold start of `codex app-server` (auth check, MCP server startup, first-run setup)
+// can legitimately exceed the transport's 30s default. Give the handshake more room.
+const CODEX_APP_SERVER_INITIALIZE_TIMEOUT_MS = 60_000;
+
 export function getCodexAppServerWorkingDirectory(plugin: ClaudianPlugin): string {
   return getVaultPath(plugin.app) ?? process.cwd();
 }
@@ -47,11 +51,16 @@ export function resolveCodexAppServerLaunchSpec(
 
 export async function initializeCodexAppServerTransport(
   transport: CodexRpcTransport,
+  timeoutMs?: number,
 ): Promise<InitializeResult> {
-  const result = await transport.request<InitializeResult>('initialize', {
-    clientInfo: CODEX_APP_SERVER_CLIENT_INFO,
-    capabilities: { experimentalApi: true },
-  });
+  const result = await transport.request<InitializeResult>(
+    'initialize',
+    {
+      clientInfo: CODEX_APP_SERVER_CLIENT_INFO,
+      capabilities: { experimentalApi: true },
+    },
+    timeoutMs ?? CODEX_APP_SERVER_INITIALIZE_TIMEOUT_MS,
+  );
 
   transport.notify('initialized');
   return result;

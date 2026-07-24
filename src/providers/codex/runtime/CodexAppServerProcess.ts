@@ -9,6 +9,7 @@ import {
 import type { CodexLaunchSpec } from './codexLaunchTypes';
 
 const SIGKILL_TIMEOUT_MS = 3_000;
+const STDERR_BUFFER_LIMIT = 8_000;
 
 type ExitCallback = (code: number | null, signal: string | null) => void;
 
@@ -17,6 +18,7 @@ export class CodexAppServerProcess {
   private alive = false;
   private exitCallbacks: ExitCallback[] = [];
   private resolvedSpawnSpec: WindowsCmdShimSpawnSpec | null = null;
+  private stderrBuffer = '';
 
   constructor(
     private readonly launchSpec: Pick<CodexLaunchSpec, 'command' | 'args' | 'spawnCwd' | 'env'>,
@@ -26,25 +28,31 @@ export class CodexAppServerProcess {
     const resolvedSpawnSpec = resolveWindowsCmdShimSpawnSpec(this.launchSpec);
     this.resolvedSpawnSpec = resolvedSpawnSpec;
 
-    this.proc = spawn(resolvedSpawnSpec.command, resolvedSpawnSpec.args, {
+    const proc = spawn(resolvedSpawnSpec.command, resolvedSpawnSpec.args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: this.launchSpec.spawnCwd,
       env: this.launchSpec.env,
       windowsHide: true,
       ...(resolvedSpawnSpec.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}),
     });
+    this.proc = proc;
 
     this.alive = true;
 
-    this.proc.on('exit', (code, signal) => {
+    proc.on('exit', (code, signal) => {
       this.alive = false;
       for (const cb of this.exitCallbacks) {
         cb(code, signal);
       }
     });
 
-    this.proc.on('error', () => {
+    proc.on('error', () => {
       this.alive = false;
+    });
+
+    proc.stderr.on('data', (chunk: Buffer | string) => {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
+      this.stderrBuffer = `${this.stderrBuffer}${text}`.slice(-STDERR_BUFFER_LIMIT);
     });
   }
 
@@ -65,6 +73,10 @@ export class CodexAppServerProcess {
 
   isAlive(): boolean {
     return this.alive;
+  }
+
+  getStderrSnapshot(): string {
+    return this.stderrBuffer.trim();
   }
 
   onExit(callback: ExitCallback): void {

@@ -365,6 +365,26 @@ export const codexSettingsTabRenderer: ProviderSettingsTabRenderer = {
         });
       });
 
+    // --- Advanced ---
+
+    new Setting(container).setName('Advanced').setHeading();
+
+    new Setting(container)
+      .setName('Initialize timeout (ms)')
+      .setDesc('Maximum time in milliseconds to wait for the Codex app-server to start up. Increase if you see `Request timeout: initialize` errors on slow machines or under heavy mcp server loads. Minimum 5000.')
+      .addText((text) => {
+        text
+          .setPlaceholder('60000')
+          .setValue(String(codexSettings.initializeTimeoutMs))
+          .onChange(async (value) => {
+            updateCodexProviderSettings(
+              settingsBag,
+              { initializeTimeoutMs: Number.parseInt(value, 10) },
+            );
+            await context.plugin.saveSettings();
+          });
+      });
+
     // --- Skills ---
 
     const codexCatalog = codexWorkspace.commandCatalog;

@@ -252,4 +252,39 @@ describe('CodexAppServerProcess', () => {
       expect(server.isAlive()).toBe(false);
     });
   });
+
+  describe('getStderrSnapshot', () => {
+    it('returns empty string before any stderr is emitted', () => {
+      const server = new CodexAppServerProcess(createLaunchSpec());
+      server.start();
+
+      expect(server.getStderrSnapshot()).toBe('');
+    });
+
+    it('captures stderr chunks emitted by the process', () => {
+      const server = new CodexAppServerProcess(createLaunchSpec());
+      server.start();
+
+      (mockProc.stderr as Readable).emit('data', 'starting codex\n');
+      (mockProc.stderr as Readable).emit('data', 'auth ok\n');
+
+      expect(server.getStderrSnapshot()).toBe('starting codex\nauth ok');
+    });
+
+    it('keeps only the tail when stderr exceeds the 8KB buffer cap', () => {
+      const server = new CodexAppServerProcess(createLaunchSpec());
+      server.start();
+
+      const head = 'A'.repeat(6_000);
+      const tail = 'B'.repeat(4_000);
+      (mockProc.stderr as Readable).emit('data', head);
+      (mockProc.stderr as Readable).emit('data', tail);
+
+      const snapshot = server.getStderrSnapshot();
+      // 8KB cap keeps the last 8_000 of 10_000 chars: 4_000 trailing A's + 4_000 B's
+      expect(snapshot.length).toBe(8_000);
+      expect(snapshot.startsWith('A'.repeat(4_000))).toBe(true);
+      expect(snapshot.endsWith('B'.repeat(4_000))).toBe(true);
+    });
+  });
 });
