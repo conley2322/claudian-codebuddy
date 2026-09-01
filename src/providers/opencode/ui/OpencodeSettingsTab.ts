@@ -208,6 +208,16 @@ export const opencodeSettingsTabRenderer: ProviderSettingsTabRenderer = {
       renderList();
     });
 
+    const refreshBtn = controlsEl.createEl('button', {
+      cls: 'claudian-provider-model-picker-action',
+      text: 'Refresh',
+    });
+    refreshBtn.setAttribute('type', 'button');
+    refreshBtn.setAttribute('aria-label', 'Refresh available models from OpenCode');
+    refreshBtn.addEventListener('click', () => {
+      if (loadingModelCatalog) return;
+      void loadModelCatalog(true);
+    });
     const listEl = catalogEl.createDiv({ cls: 'claudian-opencode-model-picker-list' });
     let loadingModelCatalog = false;
     let modelCatalogLoadFailed = false;
@@ -300,6 +310,8 @@ export const opencodeSettingsTabRenderer: ProviderSettingsTabRenderer = {
         catalogSummary = `${current.discoveredModels.length} available`;
       }
       catalogSummaryCountEl.setText(catalogSummary);
+      refreshBtn.disabled = loadingModelCatalog;
+      refreshBtn.setText(loadingModelCatalog ? 'Refreshing...' : 'Refresh');
     };
 
     const renderSelected = (): void => {
@@ -541,8 +553,8 @@ export const opencodeSettingsTabRenderer: ProviderSettingsTabRenderer = {
 
     renderAll();
 
-    const loadModelCatalog = async (): Promise<void> => {
-      if (loadingModelCatalog || getOpencodeProviderSettings(settingsBag).discoveredModels.length > 0) {
+    const loadModelCatalog = async (force = false): Promise<void> => {
+      if (loadingModelCatalog || (!force && getOpencodeProviderSettings(settingsBag).discoveredModels.length > 0)) {
         return;
       }
 

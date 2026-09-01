@@ -5,6 +5,7 @@ import { claudeSettingsTabRenderer } from '@/providers/claude/ui/ClaudeSettingsT
 
 const mockRenderEnvironmentSettingsSection = jest.fn();
 const mockSaveSettings = jest.fn().mockResolvedValue(undefined);
+const mockCliResolverReset = jest.fn();
 
 jest.mock('fs');
 jest.mock('@/core/providers/ProviderSettingsCoordinator', () => ({
@@ -32,6 +33,7 @@ jest.mock('obsidian', () => {
     public textAreaComponents: MockTextAreaComponent[] = [];
     public dropdownComponents: MockDropdownComponent[] = [];
     public toggleComponents: MockToggleComponent[] = [];
+    public buttonComponents: MockButtonComponent[] = [];
 
     constructor(_container: unknown) {
       createdSettings.push(this);
@@ -79,9 +81,17 @@ jest.mock('obsidian', () => {
       callback(component);
       return this;
     }
+
+    addButton(callback: (button: MockButtonComponent) => void) {
+      const component = createButtonComponent();
+      this.buttonComponents.push(component);
+      callback(component);
+      return this;
+    }
   }
 
   return {
+    Notice: jest.fn(),
     Setting: MockSetting,
   };
 });
@@ -97,7 +107,7 @@ jest.mock('@/features/settings/ui/McpSettingsManager', () => ({
 jest.mock('@/providers/claude/app/ClaudeWorkspaceServices', () => ({
   getClaudeWorkspaceServices: jest.fn(() => ({
     cliResolver: {
-      reset: jest.fn(),
+      reset: mockCliResolverReset,
     },
     commandCatalog: {},
     agentManager: {},
@@ -172,6 +182,14 @@ interface MockToggleComponent {
   onChange: jest.MockedFunction<(callback: (value: boolean) => Promise<void> | void) => MockToggleComponent>;
 }
 
+interface MockButtonComponent {
+  text: string;
+  onClickCallback: (() => Promise<void> | void) | null;
+  setButtonText: jest.MockedFunction<(value: string) => MockButtonComponent>;
+  setTooltip: jest.MockedFunction<(value: string) => MockButtonComponent>;
+  onClick: jest.MockedFunction<(callback: () => Promise<void> | void) => MockButtonComponent>;
+}
+
 const createdSettings: Array<{
   name: string;
   desc: string;
@@ -180,6 +198,7 @@ const createdSettings: Array<{
   textAreaComponents: MockTextAreaComponent[];
   dropdownComponents: MockDropdownComponent[];
   toggleComponents: MockToggleComponent[];
+  buttonComponents: MockButtonComponent[];
 }> = [];
 
 function createInputEl(): MockInputEl & { _listeners: Map<string, Array<() => void>> } {
@@ -270,6 +289,22 @@ function createToggleComponent(): MockToggleComponent {
     return component;
   });
 
+  return component;
+}
+
+function createButtonComponent(): MockButtonComponent {
+  const component = {} as MockButtonComponent;
+  component.text = '';
+  component.onClickCallback = null;
+  component.setButtonText = jest.fn((value: string) => {
+    component.text = value;
+    return component;
+  });
+  component.setTooltip = jest.fn((_value: string) => component);
+  component.onClick = jest.fn((callback: () => Promise<void> | void) => {
+    component.onClickCallback = callback;
+    return component;
+  });
   return component;
 }
 
@@ -403,6 +438,18 @@ describe('ClaudeSettingsTab', () => {
 
     expect(cliPathInput.placeholder).toContain('cli-wrapper.cjs');
     expect(cliPathInput.placeholder).not.toContain('cli.js');
+  });
+
+  it('resets CLI resolution and refreshes model selectors on demand', async () => {
+    const context = createContext(createPlugin());
+
+    claudeSettingsTabRenderer.render(createContainer(), context);
+
+    const refreshSetting = findSetting('Refresh models');
+    await refreshSetting.buttonComponents[0].onClickCallback?.();
+
+    expect(mockCliResolverReset).toHaveBeenCalledTimes(1);
+    expect(context.refreshModelSelectors).toHaveBeenCalledTimes(1);
   });
 
   it('does not switch the active model while the custom models textarea is mid-edit', async () => {

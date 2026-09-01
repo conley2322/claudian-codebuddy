@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 
-import { Setting } from 'obsidian';
+import type { ButtonComponent } from 'obsidian';
+import { Notice, Setting } from 'obsidian';
 
 import type { ProviderSettingsTabRenderer } from '../../../core/providers/types';
 import { renderEnvironmentSettingsSection } from '../../../features/settings/ui/EnvironmentSettingsSection';
@@ -8,6 +9,7 @@ import { getHostnameKey } from '../../../utils/env';
 import { expandHomePath } from '../../../utils/path';
 import { maybeGetCodeBuddyWorkspaceServices } from '../app/CodeBuddyWorkspaceServices';
 import { formatCodeBuddyModelLabel } from '../models';
+import { CodeBuddyChatRuntime } from '../runtime/CodeBuddyChatRuntime';
 import { getCodeBuddyProviderSettings, updateCodeBuddyProviderSettings } from '../settings';
 
 export const codeBuddySettingsTabRenderer: ProviderSettingsTabRenderer = {
@@ -94,9 +96,41 @@ export const codeBuddySettingsTabRenderer: ProviderSettingsTabRenderer = {
     const modelSummary = codeBuddySettings.discoveredModels.length === 0
       ? 'Models are discovered after the first CodeBuddy session starts.'
       : `${codeBuddySettings.discoveredModels.length} models discovered from CodeBuddy Code.`;
+
+    const refreshCodeBuddyModels = async (btn: ButtonComponent): Promise<void> => {
+      btn.setButtonText('Refreshing...');
+      btn.setDisabled(true);
+      try {
+        const runtime = new CodeBuddyChatRuntime(context.plugin);
+        try {
+          const ready = await runtime.ensureReady({ allowSessionCreation: true });
+          if (!ready) {
+            throw new Error('CodeBuddy could not start. Check the CLI path and login state.');
+          }
+        } finally {
+          runtime.cleanup();
+        }
+        context.refreshModelSelectors();
+        new Notice('CodeBuddy models refreshed');
+        // Re-render the tab so newly discovered models appear (replaces the button).
+        container.empty();
+        codeBuddySettingsTabRenderer.render(container, context);
+      } catch (err) {
+        new Notice(
+          `Failed to discover CodeBuddy models: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        btn.setButtonText('Refresh');
+        btn.setDisabled(false);
+      }
+    };
+
     new Setting(container)
       .setName('Discovered models')
-      .setDesc(modelSummary);
+      .setDesc(modelSummary)
+      .addButton((btn) => {
+        btn.setButtonText('Refresh').setTooltip('Discover available models from CodeBuddy Code');
+        btn.onClick(() => { void refreshCodeBuddyModels(btn); });
+      });
 
     if (codeBuddySettings.discoveredModels.length > 0) {
       const visibleSet = new Set(codeBuddySettings.visibleModels);

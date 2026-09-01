@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { Setting } from 'obsidian';
+import { Notice, Setting } from 'obsidian';
 
 import { ProviderSettingsCoordinator } from '../../../core/providers/ProviderSettingsCoordinator';
 import type { ProviderSettingsTabRenderer } from '../../../core/providers/types';
@@ -176,6 +176,18 @@ export const claudeSettingsTabRenderer: ProviderSettingsTabRenderer = {
     // --- Models ---
 
     new Setting(container).setName(t('settings.models')).setHeading();
+
+    new Setting(container)
+      .setName('Refresh models')
+      .setDesc('Re-resolve the Claude CLI path and refresh the model list from current environment variables and custom models.')
+      .addButton((btn) => {
+        btn.setButtonText('Refresh');
+        btn.onClick(async () => {
+          claudeWorkspace.cliResolver.reset();
+          context.refreshModelSelectors();
+          new Notice('Claude models refreshed');
+        });
+      });
 
     new Setting(container)
       .setName(t('settings.enableOpus1M.name'))

@@ -562,6 +562,50 @@ describe('OpencodeSettingsTab', () => {
     expect(context.refreshModelSelectors).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves cached discovery data when a forced refresh fails', async () => {
+    mockRuntimeEnsureReady.mockResolvedValue(false);
+    const discoveredModels = [
+      { label: 'DeepSeek/DeepSeek V4 Pro', rawId: 'deepseek/deepseek-v4-pro' },
+    ];
+    const plugin = createPlugin({
+      providerConfigs: {
+        opencode: {
+          availableModes: [{ id: 'build', name: 'Build' }],
+          cliPath: '',
+          cliPathsByHost: {},
+          discoveredModels,
+          enabled: true,
+          environmentVariables: OPENCODE_DEFAULT_ENVIRONMENT_VARIABLES,
+          modelAliases: {},
+          preferredThinkingByModel: {},
+          selectedMode: '',
+          thinkingOptionsByModel: { 'deepseek/deepseek-v4-pro': ['high'] },
+          visibleModels: ['deepseek/deepseek-v4-pro'],
+        },
+      },
+    });
+    const context = createContext(plugin);
+
+    opencodeSettingsTabRenderer.render(createContainer(), context);
+
+    const refreshBtn = findElement('button', 'claudian-provider-model-picker-action');
+    await refreshBtn.dispatchMockEvent('click');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockRuntimeEnsureReady).toHaveBeenCalledWith(
+      plugin,
+      { allowSessionCreation: true },
+    );
+    expect(plugin.settings.providerConfigs.opencode).toMatchObject({
+      availableModes: [{ id: 'build', name: 'Build' }],
+      discoveredModels,
+      thinkingOptionsByModel: { 'deepseek/deepseek-v4-pro': ['high'] },
+    });
+    expect(context.refreshModelSelectors).not.toHaveBeenCalled();
+    expect(mockSaveSettings).not.toHaveBeenCalled();
+  });
+
   it('loads the OpenCode model catalog immediately when a fresh picker starts expanded', async () => {
     mockRuntimeEnsureReady.mockImplementation(async (plugin: any) => {
       plugin.settings.providerConfigs.opencode.discoveredModels = [

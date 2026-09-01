@@ -7,6 +7,7 @@ const mockGetHostnameKey = jest.fn(() => 'host-a');
 const mockRenderEnvironmentSettingsSection = jest.fn();
 const mockSaveSettings = jest.fn().mockResolvedValue(undefined);
 const mockBroadcastToAllTabs = jest.fn().mockResolvedValue(undefined);
+const mockCliResolverReset = jest.fn();
 
 jest.mock('fs');
 jest.mock('@/core/providers/ProviderSettingsCoordinator', () => ({
@@ -33,6 +34,7 @@ jest.mock('obsidian', () => {
     public textAreaComponents: MockTextAreaComponent[] = [];
     public dropdownComponents: MockDropdownComponent[] = [];
     public toggleComponents: MockToggleComponent[] = [];
+    public buttonComponents: MockButtonComponent[] = [];
     public settingEl = {
       style: {},
       toggleClass: jest.fn(),
@@ -86,9 +88,17 @@ jest.mock('obsidian', () => {
       callback(component);
       return this;
     }
+
+    addButton(callback: (button: MockButtonComponent) => void) {
+      const component = createButtonComponent();
+      this.buttonComponents.push(component);
+      callback(component);
+      return this;
+    }
   }
 
   return {
+    Notice: jest.fn(),
     Setting: MockSetting,
   };
 });
@@ -99,6 +109,7 @@ jest.mock('@/features/settings/ui/EnvironmentSettingsSection', () => ({
 
 jest.mock('@/providers/codex/app/CodexWorkspaceServices', () => ({
   getCodexWorkspaceServices: jest.fn(() => ({
+    cliResolver: { reset: mockCliResolverReset },
     commandCatalog: null,
     subagentStorage: {},
     refreshAgentMentions: jest.fn(),
@@ -152,6 +163,14 @@ interface MockToggleComponent {
   onChange: jest.MockedFunction<(callback: (value: boolean) => Promise<void> | void) => MockToggleComponent>;
 }
 
+interface MockButtonComponent {
+  text: string;
+  onClickCallback: (() => Promise<void> | void) | null;
+  setButtonText: jest.MockedFunction<(value: string) => MockButtonComponent>;
+  setTooltip: jest.MockedFunction<(value: string) => MockButtonComponent>;
+  onClick: jest.MockedFunction<(callback: () => Promise<void> | void) => MockButtonComponent>;
+}
+
 const createdSettings: Array<{
   name: string;
   desc: string;
@@ -160,6 +179,7 @@ const createdSettings: Array<{
   textAreaComponents: MockTextAreaComponent[];
   dropdownComponents: MockDropdownComponent[];
   toggleComponents: MockToggleComponent[];
+  buttonComponents: MockButtonComponent[];
 }> = [];
 
 interface MockInputEl {
@@ -259,6 +279,22 @@ function createToggleComponent(): MockToggleComponent {
     return component;
   });
 
+  return component;
+}
+
+function createButtonComponent(): MockButtonComponent {
+  const component = {} as MockButtonComponent;
+  component.text = '';
+  component.onClickCallback = null;
+  component.setButtonText = jest.fn((value: string) => {
+    component.text = value;
+    return component;
+  });
+  component.setTooltip = jest.fn((_value: string) => component);
+  component.onClick = jest.fn((callback: () => Promise<void> | void) => {
+    component.onClickCallback = callback;
+    return component;
+  });
   return component;
 }
 
@@ -406,6 +442,19 @@ describe('CodexSettingsTab', () => {
 
     expect(findOptionalSetting('Installation method')).toBeUndefined();
     expect(findOptionalSetting('WSL distro override')).toBeUndefined();
+  });
+
+  it('resets CLI resolution and refreshes model selectors on demand', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    const context = createContext(createPlugin());
+
+    codexSettingsTabRenderer.render(createContainer(), context);
+
+    const refreshSetting = findSetting('Refresh models');
+    await refreshSetting.buttonComponents[0].onClickCallback?.();
+
+    expect(mockCliResolverReset).toHaveBeenCalledTimes(1);
+    expect(context.refreshModelSelectors).toHaveBeenCalledTimes(1);
   });
 
   it('uses host-native CLI path behavior on non-Windows even when WSL is saved', async () => {
