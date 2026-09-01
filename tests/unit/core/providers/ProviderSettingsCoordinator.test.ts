@@ -375,6 +375,52 @@ describe('ProviderSettingsCoordinator', () => {
       expect(settings.serviceTier).toBe('fast');
     });
 
+    it('defaults CodeBuddy permission mode to bypass when no provider snapshot exists', () => {
+      const settings: Record<string, unknown> = {
+        settingsProvider: 'claude',
+        permissionMode: 'normal',
+        providerConfigs: {
+          codebuddy: { enabled: true },
+        },
+        model: 'haiku',
+        effortLevel: 'high',
+        serviceTier: 'default',
+        thinkingBudget: 'off',
+        savedProviderModel: {},
+        savedProviderEffort: {},
+        savedProviderServiceTier: {},
+        savedProviderThinkingBudget: {},
+        savedProviderPermissionMode: {},
+      };
+
+      ProviderSettingsCoordinator.projectProviderState(settings, 'codebuddy');
+
+      expect(settings.permissionMode).toBe('yolo');
+    });
+
+    it('preserves an explicit CodeBuddy ask permission snapshot', () => {
+      const settings: Record<string, unknown> = {
+        settingsProvider: 'claude',
+        permissionMode: 'yolo',
+        providerConfigs: {
+          codebuddy: { enabled: true },
+        },
+        model: 'haiku',
+        effortLevel: 'high',
+        serviceTier: 'default',
+        thinkingBudget: 'off',
+        savedProviderModel: {},
+        savedProviderEffort: {},
+        savedProviderServiceTier: {},
+        savedProviderThinkingBudget: {},
+        savedProviderPermissionMode: { codebuddy: 'normal' },
+      };
+
+      ProviderSettingsCoordinator.projectProviderState(settings, 'codebuddy');
+
+      expect(settings.permissionMode).toBe('normal');
+    });
+
     it('derives OpenCode permission mode from the managed selected mode when no provider snapshot exists yet', () => {
       const settings: Record<string, unknown> = {
         settingsProvider: 'claude',

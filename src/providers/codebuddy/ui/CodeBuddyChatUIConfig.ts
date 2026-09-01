@@ -143,8 +143,8 @@ export const codeBuddyChatUIConfig: ProviderChatUIConfig = {
     return CODEBUDDY_PERMISSION_MODE_TOGGLE;
   },
 
-  resolvePermissionMode(settings: Record<string, unknown>): string | null {
-    return typeof settings.permissionMode === 'string' ? settings.permissionMode : null;
+  resolvePermissionMode(): string {
+    return CODEBUDDY_PERMISSION_MODE_TOGGLE.activeValue;
   },
 
   applyPermissionMode(value: string, settings: unknown): void {

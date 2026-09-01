@@ -794,7 +794,6 @@ export class CodeBuddyChatRuntime implements ChatRuntime {
         configOptions: response.configOptions ?? null,
         models: response.models ?? null,
       });
-      this.syncModeFromConfig(response.configOptions ?? null);
       return response.sessionId;
     } catch {
       return null;
