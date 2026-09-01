@@ -298,6 +298,8 @@ export interface AcpPromptResponse {
   stopReason: AcpStopReason;
   usage?: AcpUsage | null;
   userMessageId?: string | null;
+  errorMessage?: string | null;
+  _meta?: Record<string, unknown> | null;
 }
 
 export interface AcpCancelNotification {

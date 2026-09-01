@@ -37,6 +37,7 @@ import { getVaultPath } from '../../../utils/path';
 import {
   AcpClientConnection,
   AcpJsonRpcTransport,
+  type AcpPromptResponse,
   type AcpReadTextFileRequest,
   type AcpRequestPermissionRequest,
   type AcpRequestPermissionResponse,
@@ -303,6 +304,10 @@ export class CodeBuddyChatRuntime implements ChatRuntime {
       });
       if (usage) {
         activeTurn.queue.push({ sessionId, type: 'usage', usage });
+      }
+      const stopError = this.getPromptStopError(response);
+      if (stopError) {
+        activeTurn.queue.push({ type: 'error', content: stopError });
       }
       activeTurn.queue.push({ type: 'done' });
       activeTurn.queue.close();
@@ -946,6 +951,27 @@ export class CodeBuddyChatRuntime implements ChatRuntime {
     }
     const cwd = this.sessionCwds.get(sessionId) ?? getVaultPath(this.plugin.app) ?? process.cwd();
     return path.resolve(cwd, rawPath);
+  }
+
+  private getPromptStopError(response: AcpPromptResponse): string | null {
+    const stopReason = response.stopReason.trim().toLowerCase();
+    if (stopReason === 'end_turn' || stopReason === 'cancelled') {
+      return null;
+    }
+
+    const directMessage = response.errorMessage?.trim();
+    const metadataMessage = response._meta?.['codebuddy.ai/errorMessage'];
+    if (directMessage) {
+      return directMessage;
+    }
+    if (typeof metadataMessage === 'string' && metadataMessage.trim()) {
+      return metadataMessage.trim();
+    }
+
+    if (stopReason === 'refusal') {
+      return 'CodeBuddy refused the request.';
+    }
+    return `CodeBuddy stopped the turn (${response.stopReason}).`;
   }
 
   private formatRuntimeError(error: unknown): string {
