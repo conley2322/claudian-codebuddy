@@ -62,6 +62,10 @@ npm run build        # 产物：main.js / styles.css / manifest.json
 - 上游作者已表示不接受新增 Provider 的 PR，本 Fork 大概率不会合并回主线
 - 使用前请确保 CodeBuddy CLI 已安装并完成登录授权
 
+## 社区讨论
+
+- LINUX DO：[Obsidian 里能用 CodeBuddy 的免费模型了，分享下](https://linux.do/t/topic/1776670)
+
 ## 致谢
 
 本仓库的存在完全建立在前人的工作之上，感谢：
