@@ -62,6 +62,16 @@ npm run build        # 产物：main.js / styles.css / manifest.json
 - 上游作者已表示不接受新增 Provider 的 PR，本 Fork 大概率不会合并回主线
 - 使用前请确保 CodeBuddy CLI 已安装并完成登录授权
 
+## 致谢
+
+本仓库的存在完全建立在前人的工作之上，感谢：
+
+- **[YishenTu/claudian](https://github.com/YishenTu/claudian)** —— Claudian 本体作者 [@YishenTu](https://github.com/YishenTu)，插件的一切基础都来自他
+- **[PR #772](https://github.com/YishenTu/claudian/pull/772) 作者 [@tzack000](https://github.com/tzack000)** —— CodeBuddy Provider 的全部实现出自他的 [codebuddy-provider 分支](https://github.com/tzack000/claudian/tree/codebuddy-provider)，本仓库仅做保存、构建与分发
+- 也感谢上游社区中所有为此提过建议和讨论的朋友
+
+本项目遵循 MIT 协议开源，所有功劳归于上述原作者。
+
 ## License
 
-遵循上游项目的开源协议（见 LICENSE）。
+[MIT](./LICENSE) © Yishen Tu（上游原作者）及本仓库贡献者。
